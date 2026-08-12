@@ -1,0 +1,6 @@
+{
+  "name": "Quản Lý Cài Đặt Phần Mềm ATGT",
+  "description": "Ứng dụng thống kê và quản lý tình trạng cài đặt phần mềm ATGT dành cho Trường PTDTBT TH&THCS Suối Lư.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
