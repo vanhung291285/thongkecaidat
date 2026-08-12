@@ -57,28 +57,33 @@ export const TeacherRegistrationForm: React.FC<TeacherRegistrationFormProps> = (
     setSuccessMsg(null);
 
     try {
+      // Find if this staff name already exists in existingStaffList
+      const existingMatch = existingStaffList.find(
+        (s) => s.ho_ten.trim().toLowerCase() === hoTen.trim().toLowerCase()
+      );
+      const targetId = selectedStaffId || existingMatch?.id || undefined;
+
       await onSaveStaff(
         {
           ho_ten: hoTen.trim(),
-          ma_can_bo: maCanBo.trim() || `SL${Math.floor(10 + Math.random() * 90)}`,
+          ma_can_bo: maCanBo.trim() || (existingMatch?.ma_can_bo ? existingMatch.ma_can_bo : ''),
           chuc_vu: chucVu,
           bo_phan: boPhan.trim() || 'Tổ Giáo viên',
           da_cai_dat: daCaiDat,
           ngay_cai_dat: daCaiDat ? new Date().toISOString() : null,
         },
-        selectedStaffId || undefined
+        targetId
       );
 
-      setSuccessMsg(`✅ Đã gửi thành công! Cán bộ: ${hoTen} - Trạng thái: ${daCaiDat ? 'ĐÃ CÀI ĐẶT' : 'CHƯA CÀI ĐẶT'}`);
+      setSuccessMsg(`✅ Đã gửi khai báo thành công! Cán bộ: ${hoTen.trim()} - Trạng thái: ${daCaiDat ? 'ĐÃ CÀI ĐẶT' : 'CHƯA CÀI ĐẶT'}`);
       
-      // Reset after submission if it was a new record
-      if (!selectedStaffId) {
-        setHoTen('');
-        setMaCanBo('');
-        setChucVu('Giáo viên');
-        setBoPhan('Tổ Giáo viên');
-        setDaCaiDat(true);
-      }
+      // Reset form fields
+      setSelectedStaffId('');
+      setHoTen('');
+      setMaCanBo('');
+      setChucVu('Giáo viên');
+      setBoPhan('Tổ Giáo viên');
+      setDaCaiDat(true);
 
       if (onStatusUpdated) onStatusUpdated();
     } catch (err: any) {
