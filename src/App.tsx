@@ -478,6 +478,9 @@ export default function App() {
           <p className="text-emerald-400 font-semibold">
             TRƯỜNG PTDTBT TH&THCS SUỐI LƯ
           </p>
+          <p className="text-amber-300 font-bold text-sm py-1">
+            Phát triển ứng dụng bởi: Vũ Văn Hùng
+          </p>
           <p className="text-slate-500 pt-2">
             Hỗ trợ Supabase Realtime • Tự động tính toán số liệu • Tương thích Máy tính & Điện thoại
           </p>
