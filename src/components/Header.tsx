@@ -1,12 +1,11 @@
 import React from 'react';
-import { Database, FileSpreadsheet, Plus, Settings, RefreshCw, ShieldCheck, Radio } from 'lucide-react';
+import { Database, FileSpreadsheet, RefreshCw, ShieldCheck, Radio } from 'lucide-react';
 
 interface HeaderProps {
   isConnected: boolean;
   onOpenImportModal: () => void;
   onExportAll: () => void;
   onExportReport: () => void;
-  onOpenAddModal: () => void;
   onOpenConfigModal: () => void;
   onRefreshData: () => void;
   isRefreshing: boolean;
@@ -17,7 +16,6 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenImportModal,
   onExportAll,
   onExportReport,
-  onOpenAddModal,
   onOpenConfigModal,
   onRefreshData,
   isRefreshing,
@@ -84,14 +82,6 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <FileSpreadsheet className="w-3.5 h-3.5" />
               <span>Xuất Báo Cáo</span>
-            </button>
-
-            <button
-              onClick={onOpenAddModal}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded shadow-sm transition-all border border-slate-900 uppercase"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Thêm Cán Bộ</span>
             </button>
 
             <button
