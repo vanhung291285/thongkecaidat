@@ -314,7 +314,6 @@ export async function addStaff(
     ngay_cai_dat: staffData.da_cai_dat ? new Date().toISOString() : null,
   };
 
-  // Always sync to local storage first as local copy
   const local = getLocalStaff();
   const newLocalStaff: Staff = {
     ...payload,
@@ -325,20 +324,92 @@ export async function addStaff(
   };
 
   if (!supabase) {
+    // Check if name already exists locally
+    const existingLocalIdx = local.findIndex(
+      (s) => s.ho_ten.trim().toLowerCase() === payload.ho_ten.toLowerCase()
+    );
+    if (existingLocalIdx !== -1) {
+      local[existingLocalIdx] = {
+        ...local[existingLocalIdx],
+        ...payload,
+        ma_can_bo: payload.ma_can_bo || local[existingLocalIdx].ma_can_bo,
+      };
+      saveLocalStaff(local);
+      return { success: true, staff: local[existingLocalIdx] };
+    }
     local.push(newLocalStaff);
     saveLocalStaff(local);
     return { success: true, staff: newLocalStaff };
   }
 
   try {
-    const { data, error } = await supabase.from('staff').insert(payload).select('*').single();
+    // 1. Check if person with same name already exists in Supabase
+    const { data: existingByName } = await supabase
+      .from('staff')
+      .select('*')
+      .ilike('ho_ten', payload.ho_ten)
+      .maybeSingle();
+
+    if (existingByName) {
+      // Update existing record in Supabase
+      const { data: updatedData, error: updateError } = await supabase
+        .from('staff')
+        .update({
+          ma_can_bo: payload.ma_can_bo || existingByName.ma_can_bo,
+          chuc_vu: payload.chuc_vu,
+          bo_phan: payload.bo_phan,
+          da_cai_dat: payload.da_cai_dat,
+          ngay_cai_dat: payload.ngay_cai_dat,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existingByName.id)
+        .select('*')
+        .single();
+
+      if (updateError) {
+        console.error('Supabase updateStaff on add error:', updateError);
+        return { success: false, error: updateError.message };
+      }
+
+      const updatedStaff: Staff = {
+        id: String(updatedData.id),
+        ho_ten: updatedData.ho_ten,
+        ma_can_bo: updatedData.ma_can_bo || '',
+        chuc_vu: sanitizePosition(updatedData.chuc_vu),
+        bo_phan: updatedData.bo_phan,
+        da_cai_dat: Boolean(updatedData.da_cai_dat),
+        ngay_cai_dat: updatedData.ngay_cai_dat,
+        created_at: updatedData.created_at,
+        updated_at: updatedData.updated_at,
+      };
+
+      // Update local storage too
+      const lIdx = local.findIndex((s) => s.id === updatedStaff.id || s.ho_ten.toLowerCase() === updatedStaff.ho_ten.toLowerCase());
+      if (lIdx !== -1) {
+        local[lIdx] = updatedStaff;
+      } else {
+        local.push(updatedStaff);
+      }
+      saveLocalStaff(local);
+
+      return { success: true, staff: updatedStaff };
+    }
+
+    // 2. Insert new record in Supabase
+    let insertPayload = { ...payload };
+    let { data, error } = await supabase.from('staff').insert(insertPayload).select('*').single();
+
+    if (error && error.message?.includes('ma_can_bo')) {
+      // Retry with null ma_can_bo if there's a constraint issue
+      insertPayload.ma_can_bo = null;
+      const retryResult = await supabase.from('staff').insert(insertPayload).select('*').single();
+      data = retryResult.data;
+      error = retryResult.error;
+    }
 
     if (error) {
       console.error('Supabase addStaff error:', error);
-      // Fallback save to local storage
-      local.push(newLocalStaff);
-      saveLocalStaff(local);
-      return { success: true, staff: newLocalStaff };
+      return { success: false, error: 'Lỗi Supabase: ' + error.message };
     }
 
     const createdStaff: Staff = {
@@ -353,16 +424,13 @@ export async function addStaff(
       updated_at: data.updated_at,
     };
 
-    // Update local storage with real Supabase record
     local.push(createdStaff);
     saveLocalStaff(local);
 
     return { success: true, staff: createdStaff };
   } catch (err: any) {
     console.error('Exception in addStaff:', err);
-    local.push(newLocalStaff);
-    saveLocalStaff(local);
-    return { success: true, staff: newLocalStaff };
+    return { success: false, error: err?.message || 'Lỗi thêm nhân sự vào Supabase' };
   }
 }
 
@@ -528,9 +596,7 @@ export async function bulkInsertStaff(
 
     if (error) {
       console.error('Bulk insert Supabase error:', error);
-      // Fallback save locally
-      saveLocalStaff([...local, ...newLocalEntries]);
-      return { success: true, insertedCount: newLocalEntries.length };
+      return { success: false, insertedCount: 0, error: 'Lỗi lưu vào Supabase: ' + error.message };
     }
 
     const insertedStaff: Staff[] = (data || []).map((item: any) => ({
@@ -550,8 +616,62 @@ export async function bulkInsertStaff(
     return { success: true, insertedCount: insertedStaff.length };
   } catch (err: any) {
     console.error('Exception in bulkInsertStaff:', err);
-    saveLocalStaff([...local, ...newLocalEntries]);
-    return { success: true, insertedCount: newLocalEntries.length };
+    return { success: false, insertedCount: 0, error: err?.message || 'Lỗi nhập dữ liệu Excel vào Supabase' };
+  }
+}
+
+// Sync local records up to Supabase
+export async function syncLocalToSupabase(): Promise<{ success: boolean; syncedCount: number; error?: string }> {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    return { success: false, syncedCount: 0, error: 'Chưa cấu hình Supabase' };
+  }
+
+  const local = getLocalStaff();
+  if (local.length === 0) {
+    return { success: true, syncedCount: 0 };
+  }
+
+  try {
+    let synced = 0;
+    for (const item of local) {
+      const payload = {
+        ho_ten: item.ho_ten.trim(),
+        ma_can_bo: item.ma_can_bo?.trim() ? item.ma_can_bo.trim() : null,
+        chuc_vu: sanitizePosition(item.chuc_vu),
+        bo_phan: item.bo_phan.trim(),
+        da_cai_dat: Boolean(item.da_cai_dat),
+        ngay_cai_dat: item.da_cai_dat ? (item.ngay_cai_dat || new Date().toISOString()) : null,
+      };
+
+      // Check existing by name
+      const { data: existing } = await supabase
+        .from('staff')
+        .select('*')
+        .ilike('ho_ten', payload.ho_ten)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase
+          .from('staff')
+          .update({
+            ...payload,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existing.id);
+        synced++;
+      } else {
+        await supabase.from('staff').insert(payload);
+        synced++;
+      }
+    }
+
+    // Refresh local backup with latest state
+    await fetchAllStaff();
+    return { success: true, syncedCount: synced };
+  } catch (err: any) {
+    console.error('Error syncing local to Supabase:', err);
+    return { success: false, syncedCount: 0, error: err?.message || 'Lỗi đồng bộ' };
   }
 }
 
