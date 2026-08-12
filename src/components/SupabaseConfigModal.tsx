@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { X, Database, Copy, Check, Shield, AlertCircle, RotateCcw, Radio } from 'lucide-react';
+import { X, Database, Copy, Check, Shield, AlertCircle, RotateCcw, Radio, RefreshCw } from 'lucide-react';
 import {
   getStoredSupabaseConfig,
   saveSupabaseConfig,
   SUPABASE_SQL_SETUP_SCRIPT,
-  isSupabaseConfigured,
+  syncLocalToSupabase,
 } from '../lib/supabase';
 
 interface SupabaseConfigModalProps {
@@ -27,6 +27,7 @@ export const SupabaseConfigModal: React.FC<SupabaseConfigModalProps> = ({
   const [anonKey, setAnonKey] = useState(currentConfig.anonKey);
   const [copiedSql, setCopiedSql] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [tab, setTab] = useState<'config' | 'sql'>('config');
 
   if (!isOpen) return null;
@@ -42,6 +43,23 @@ export const SupabaseConfigModal: React.FC<SupabaseConfigModalProps> = ({
     navigator.clipboard.writeText(SUPABASE_SQL_SETUP_SCRIPT);
     setCopiedSql(true);
     setTimeout(() => setCopiedSql(false), 2000);
+  };
+
+  const handleSyncLocal = async () => {
+    setIsSyncing(true);
+    try {
+      const res = await syncLocalToSupabase();
+      if (res.success) {
+        alert(`✅ Đã đồng bộ thành công ${res.syncedCount} bản ghi nội bộ lên Supabase!`);
+        onConfigSaved();
+      } else {
+        alert('❌ Lỗi đồng bộ: ' + res.error);
+      }
+    } catch (err: any) {
+      alert('Lỗi: ' + err.message);
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const handleResetAll = async () => {
@@ -132,7 +150,7 @@ export const SupabaseConfigModal: React.FC<SupabaseConfigModalProps> = ({
                   <p className="mt-0.5">
                     {isConnected
                       ? 'Mọi thao tác tích chọn trạng thái sẽ đồng bộ tức thì trên tất cả điện thoại và máy tính.'
-                      : 'Nhập VITE_SUPABASE_URL và VITE_SUPABASE_ANON_KEY bên dưới để kết nối cơ sở dữ liệu Supabase dùng chung.'}
+                      : 'Nhập VITE_SUPABASE_URL và VITE_SUPABASE_ANON_KEY bên dưới để kết nối cơ sở dữ liệu Supabase dùng chung cho tất cả các máy.'}
                   </p>
                 </div>
               </div>
@@ -168,17 +186,32 @@ export const SupabaseConfigModal: React.FC<SupabaseConfigModalProps> = ({
                 </p>
               </div>
 
-              <div className="flex items-center justify-between pt-2">
-                <button
-                  type="button"
-                  onClick={handleResetAll}
-                  disabled={isResetting}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold rounded-xl transition-colors disabled:opacity-50"
-                  title="Đặt lại trạng thái tất cả cán bộ về Chưa cài đặt"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  Đặt lại tất cả về Chưa cài đặt
-                </button>
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleResetAll}
+                    disabled={isResetting}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold rounded-xl transition-colors disabled:opacity-50"
+                    title="Đặt lại trạng thái tất cả cán bộ về Chưa cài đặt"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    Đặt lại tất cả về Chưa cài đặt
+                  </button>
+
+                  {isConnected && (
+                    <button
+                      type="button"
+                      onClick={handleSyncLocal}
+                      disabled={isSyncing}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 text-xs font-bold rounded-xl transition-colors disabled:opacity-50"
+                      title="Đồng bộ tất cả dữ liệu máy này lên Cloud Supabase"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                      Đồng bộ dữ liệu nội bộ lên Cloud
+                    </button>
+                  )}
+                </div>
 
                 <button
                   type="submit"
