@@ -54,6 +54,10 @@ export const Header: React.FC<HeaderProps> = ({
             <h2 className="text-xs sm:text-sm font-medium text-slate-500 uppercase">
               TRƯỜNG PTDTBT TH&THCS SUỐI LƯ
             </h2>
+            <p className="text-xs sm:text-sm font-bold text-emerald-700 flex items-center gap-1.5 mt-1">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+              Phát triển ứng dụng bởi: Vũ Văn Hùng
+            </p>
           </div>
 
           {/* Action Toolbar */}
