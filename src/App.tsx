@@ -31,7 +31,7 @@ import { ExcelImportModal } from './components/ExcelImportModal';
 import { StaffModal } from './components/StaffModal';
 import { SupabaseConfigModal } from './components/SupabaseConfigModal';
 import { Toast, ToastMessage } from './components/Toast';
-import { RefreshCw, Users, CheckCircle2, XCircle, BarChart2, ShieldCheck, Download } from 'lucide-react';
+import { RefreshCw, Users, CheckCircle2, XCircle, BarChart2, ShieldCheck, Download, AlertCircle } from 'lucide-react';
 
 export default function App() {
   const [staffList, setStaffList] = useState<Staff[]>([]);
@@ -116,6 +116,15 @@ export default function App() {
       supabase.removeChannel(channel);
     };
   }, [loadData, showToast]);
+
+  // Periodic polling every 6s when connected, so all browsers & devices remain perfectly in sync
+  useEffect(() => {
+    if (!isConnected) return;
+    const interval = setInterval(() => {
+      loadData(false);
+    }, 6000);
+    return () => clearInterval(interval);
+  }, [isConnected, loadData]);
 
   // Calculate Overall Statistics dynamically
   const stats: OverallStats = useMemo(() => {
@@ -280,6 +289,24 @@ export default function App() {
         onRefreshData={() => loadData(true)}
         isRefreshing={isRefreshing}
       />
+
+      {/* Connection Notice Banner when not connected to Cloud Supabase */}
+      {!isConnected && (
+        <div className="bg-amber-600 text-white px-4 py-2.5 shadow-md flex flex-col sm:flex-row items-center justify-between gap-2 text-xs font-semibold">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-5 h-5 shrink-0 text-amber-200" />
+            <span>
+              <strong>LƯU Ý KẾT NỐI:</strong> Trình duyệt này chưa cấu hình kết nối Supabase Cloud. Dữ liệu khai báo hiện chỉ lưu trên máy này. Bấm vào nút bên phải để nhập thông số kết nối dùng chung cho tất cả các máy.
+            </span>
+          </div>
+          <button
+            onClick={() => setIsConfigModalOpen(true)}
+            className="px-3 py-1.5 bg-white text-amber-900 font-extrabold rounded shadow hover:bg-amber-100 transition-colors uppercase shrink-0 text-[11px]"
+          >
+            ⚙️ Cấu Hình Supabase Ngay
+          </button>
+        </div>
+      )}
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 space-y-4">
