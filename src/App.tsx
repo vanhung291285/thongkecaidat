@@ -281,10 +281,6 @@ export default function App() {
         onOpenImportModal={() => setIsImportModalOpen(true)}
         onExportAll={() => exportAllStaffToExcel(staffList)}
         onExportReport={() => exportStatisticsReportToExcel(stats, staffList)}
-        onOpenAddModal={() => {
-          setStaffToEdit(null);
-          setIsStaffModalOpen(true);
-        }}
         onOpenConfigModal={() => setIsConfigModalOpen(true)}
         onRefreshData={() => loadData(true)}
         isRefreshing={isRefreshing}
